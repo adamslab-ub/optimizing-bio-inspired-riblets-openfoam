@@ -1,0 +1,29 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  5                                     |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+topWall
+{
+    type slip;
+}
+
+bottomWall
+{
+    type slip;
+}
+
+sym
+{
+  type symmetryPlane;
+}
+
+sideWall
+{
+  type slip;
+}
+
+// ************************************************************************* //

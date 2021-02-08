@@ -1,0 +1,23 @@
+#!/bin/sh
+module load openmpi/gcc-4.8.x/2.0.2
+module load openfoam/v1612+
+module load paraview/4.3.1
+ulimit -s unlimited
+cd ${0%/*} || exit 1    # Run from this directory
+
+# Source tutorial clean functions
+. $WM_PROJECT_DIR/bin/tools/CleanFunctions
+
+# Remove surface and features
+rm -f constant/triSurface/motorBike.obj.gz > /dev/null 2>&1
+rm -rf constant/extendedFeatureEdgeMesh > /dev/null 2>&1
+rm -f constant/triSurface/motorBike.eMesh > /dev/null 2>&1
+
+rm -rf 0 > /dev/null 2>&1
+
+cleanCase
+
+rm -rf of_air*
+rm -rf *~
+rm -rf core*
+#------------------------------------------------------------------------------

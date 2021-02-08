@@ -1,0 +1,65 @@
+#!/bin/bash
+#title           :allRun.sh
+#description     :This script generates mesh and run CFD simulation.
+#author		 :Sumeet Lulekar, and Payam Ghassemi
+#date            :Nov 02, 2019
+#version         :2.0    
+#usage		 :bash allRun.sh
+#notes           :Install OpenMPI, OpenFoam, and Paraview.
+#==============================================================================
+
+# Module mpi, foam module and source openfoam environment
+module load openmpi/gcc-4.8.x/2.0.2
+module load openfoam/v1612+
+module load paraview/4.3.1
+ulimit -s unlimited
+source foamStart
+
+cd ${0%/*} || exit 1    # Run from this directory
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+runApplication surfaceFeatureExtract
+
+runApplication blockMesh
+
+[ ! -d openFoamSrc ] && cp -r 0.orig openFoamSrc
+
+runApplication decomposePar $decompDict
+
+# Using distributedTriSurfaceMesh?
+if foamDictionary -entry geometry -value system/snappyHexMeshDict | \
+   grep -q distributedTriSurfaceMesh
+then
+    runParallel surfaceRedistributePar motorBike.stl independent
+fi
+
+runParallel snappyHexMesh -overwrite
+
+restore0Dir -processor
+
+runParallel patchSummary
+#runParallel potentialFoam
+runParallel simpleFoam
+
+runApplication reconstructParMesh -constant
+runApplication reconstructPar -latestTime
+# mv $angleOfAttack ./baseCadModel
+# runApplication foamToVTK
+# runApplication checkMesh
+simpleFoam -postProcess -func vorticity > log.vorticity
+simpleFoam -postProcess -func wallShearStress > log.wallShearStress
+simpleFoam -postProcess -func yPlus > log.yPlus
+# rm -rf processor*
+# mv 0 ./zero
+pvpython paraviewScript.py > log.postProcess
+cat *[1-9]*/uniform/functionObjects/functionObjectProperties|grep 'Cd'|awk '{print $2}'|awk '{print substr($0,0,14)}' > ./Cd.dat
+cat *[1-9]*/uniform/functionObjects/functionObjectProperties|grep 'Cl'|awk '{print $2}'|awk '{print substr($0,0,14)}' > ./Cl.dat
+cat new_data0.csv |column -t -s,|awk {'printf ("%5s\t%s\n",$11,$15)'}|awk 'NR>1' |awk '{if($1>=0) { print $1"\t"$2} else {print $1*-1"\t"$2}}'|sort -n -k1|awk '{print $2}'|awk 'NR<5'|sort -k1|awk 'NR>3'
+
+# Saving all data to one file in the order [gaussian_height, gaussian_space, gaussian_space, Cd, Cl, separation_point(x/c)]
+cat designVariables.dat tab.dat Cd.dat tab.dat Cl.dat|xargs > functionObjectiveValue.dat
+
+cat functionObjectiveValue.dat |tee -a ./../../../data/values.dat > /dev/null
+#------------------------------------------------------------------------------
